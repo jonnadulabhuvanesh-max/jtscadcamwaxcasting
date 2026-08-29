@@ -19,7 +19,7 @@ const reviews=[
 const faqs=[
   ["What is CAD/CAM Wax Casting in jewelry manufacturing?","CAD creates precise 3D digital models. CAM 3D-prints them using specialized castable wax resin. The wax model is placed inside an investment mold and removed in the lost-wax process before molten metal fills the cavity."],
   ["What is your average turnaround time for CAD design and Wax Tree printing?","Standard CAD designs are targeted for 12–24 hours. Once approved, 3D wax resin printing typically takes 3–6 hours. Same-day pickup is available in Vijayawada and express shipping is available across India."],
-  ["Can retail clients order custom individual jewelry pieces through JTS?","Yes. JTS serves B2B jewelers and direct-to-customer custom jewelry projects. Clients can submit a photo or sketch, approve the CAD model, and proceed to finished jewelry."],
+  ["Can retail clients order custom individual jewelry pieces through JTS?","Yes. JTS serves wholesale jewelers and direct-to-customer custom jewelry projects. Clients can submit a photo or sketch, approve the CAD model, and proceed to finished jewelry."],
   ["How should I interpret the estimated weight in the Jewellery Advance Calculator?","This is a planning estimate based on the weight and reference rate entered. Final cast weight and cost can vary with the approved CAD, sprue system, alloy, casting and finishing."],
   ["Can customer-provided gold or silver be used for casting?","Please contact JTS with your project details. Acceptance, testing and process requirements depend on the material and the specific job."],
   ["How should I handle confidential CAD designs?","Share sensitive designs only after confirming the project and confidentiality terms directly with JTS. The website does not claim that a public gallery is a secure client file repository."]
@@ -92,7 +92,6 @@ function closeModal(id){
   if(el) el.classList.add("hidden");
 }
 function openQuote(){document.getElementById("quoteModal").classList.remove("hidden")}
-function openB2B(){document.getElementById("b2bModal").classList.remove("hidden")}
 
 document.addEventListener("click",e=>{
   if(e.target.classList.contains("modal")) {
@@ -269,12 +268,6 @@ function submitQuote(e){
 function quoteWhatsApp(){
   const n=document.getElementById("quoteName").value,m=document.getElementById("quoteMetal").value,w=document.getElementById("quoteWeight").value,p=document.getElementById("quotePhone").value;
   sendWA(`Hello JTS CAD CAM, I requested an express quote. Name: ${n}. WhatsApp: ${p}. Metal: ${m}. Estimated weight: ${w}g. Please include 3% making charges and quote hallmark charges and taxes separately.`);
-}
-function requestB2B(e){
-  e.preventDefault();
-  const code=document.getElementById("partnerCode").value.trim(),business=document.getElementById("partnerBusiness").value.trim();
-  document.getElementById("b2bSuccess").classList.remove("hidden");
-  sendWA(`Hello JTS CAD CAM, I want to request B2B Partner Access. Business/Showroom: ${business}. Existing Partner Code/GSTIN/Phone: ${code||"Not provided"}. Please advise the registration process and wholesale service details.`);
 }
 function renderReviews(){
   const grid = document.getElementById("reviewsGrid");
