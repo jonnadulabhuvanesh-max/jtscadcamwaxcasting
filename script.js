@@ -1148,6 +1148,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   populateFaqStructuredData();
   calculate();
   setRate(); // This forces the box to visually fill with the 6850 rate immediately
+  // Auto-close mobile menu when a navigation link is clicked
+  document.querySelectorAll("#mobileMenu a").forEach(link => {
+    link.addEventListener("click", () => {
+      const menu = document.getElementById("mobileMenu");
+      if (menu && menu.classList.contains("open")) {
+        toggleMobile();
+      }
+    });
+  });
 
   // Automatically load live public catalog from Supabase on page load
   await loadPublicCatalog();
