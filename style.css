@@ -1140,4 +1140,18 @@ img{max-width:100%}
     pointer-events: none !important;
   }
 }
+/* --- KILL INVISIBLE MOBILE SHIELDS --- */
+.hero-glow {
+  pointer-events: none !important; 
+}
 
+.hero-grid > div:first-child {
+  position: relative !important;
+  z-index: 20 !important;
+  pointer-events: auto !important;
+}
+
+.hero .actions {
+  position: relative !important;
+  z-index: 21 !important;
+}

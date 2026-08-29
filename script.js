@@ -2,6 +2,8 @@ const WA="919515861052";
 
 // Initial / Fallback catalog items if Supabase is offline or empty
 let rawCatalogItems = [];
+let currentCatalogOffset = 0;
+const CATALOG_LIMIT = 20;
 
 let products = [];
 let gallery = [];
@@ -207,6 +209,77 @@ function quoteFromCalc(){
   const r = document.getElementById("calcRate")?.value || rates[m] || "6850";
   sendWA(`Hello JTS CAD CAM, I need an exact quote for ${t} in ${m}, estimated weight ${w}g. Rate applied: ₹${r}/g. Please include the 3% making charge and provide separate hallmark charges and taxes.`);
 }
+/**
+ * Storage & Task Status Failsafe Helpers
+ */
+async function checkStorageCapacity() {
+  const sb = typeof getSupabase === "function" ? getSupabase() : null;
+  if (!sb) return true;
+  try {
+    const [catRes, custRes] = await Promise.all([
+      sb.from("catalog_items").select("file_size"),
+      sb.from("custom_requests").select("file_size")
+    ]);
+    let totalBytes = 0;
+    if (catRes.data && Array.isArray(catRes.data)) {
+      catRes.data.forEach(item => {
+        if (item && item.file_size) totalBytes += Number(item.file_size) || 0;
+      });
+    }
+    if (custRes.data && Array.isArray(custRes.data)) {
+      custRes.data.forEach(item => {
+        if (item && item.file_size) totalBytes += Number(item.file_size) || 0;
+      });
+    }
+    const MAX_STORAGE_BYTES = 10200547328; // 9.5 GB
+    if (totalBytes >= MAX_STORAGE_BYTES) {
+      alert("Storage limit reached (9.5 GB capacity exceeded). System cannot accept further image uploads at this time.");
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("Storage capacity check warning:", err);
+    return true;
+  }
+}
+
+async function updateTaskStatus(tableName, taskId, newStatus) {
+  try {
+    const sb = typeof getSupabase === "function" ? getSupabase() : null;
+    if (!sb) {
+      alert("Supabase is not configured.");
+      return;
+    }
+    if (typeof updateItemStatus === "function") {
+      await updateItemStatus(tableName, taskId, newStatus);
+    } else {
+      const { error } = await sb.from(tableName).update({ status: newStatus }).eq("id", taskId);
+      if (error) throw error;
+    }
+    if (currentUser) {
+      await logActivity(currentUser.id, currentUser.email, "Update Task Status", {
+        table: tableName,
+        taskId: taskId,
+        status: newStatus
+      });
+    }
+  } catch (err) {
+    console.error("Failed to update task status:", err);
+    alert(`Failed to update status: ${err.message || err}`);
+  }
+}
+
+function getStatusBadge(status) {
+  const s = (status || "Pending").trim();
+  let style = "background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); color: #ffd54f;";
+  if (s === "In Progress") {
+    style = "background: rgba(33, 150, 243, 0.15); border: 1px solid rgba(33, 150, 243, 0.4); color: #64b5f6;";
+  } else if (s === "Completed") {
+    style = "background: rgba(76, 175, 80, 0.15); border: 1px solid rgba(76, 175, 80, 0.4); color: #81c784;";
+  }
+  return `<span class="status-badge" style="display:inline-block; padding:3px 8px; border-radius:6px; font:600 10px Montserrat; text-transform:uppercase; letter-spacing:0.05em; ${style}">${escapeHtml(s)}</span>`;
+}
+
 async function submitCustom(e) {
   e.preventDefault();
   const form = e.target;
@@ -220,20 +293,33 @@ async function submitCustom(e) {
     return;
   }
 
+  // 5MB Limit Failsafe
+  if (file.size > 5242880) {
+    alert("File size exceeds 5MB limit. Please upload a smaller image file (maximum 5MB).");
+    return;
+  }
+
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.textContent = "Uploading Image & Submitting...";
+    submitBtn.textContent = "Checking Storage & Uploading...";
   }
   if (successEl) successEl.classList.add("hidden");
 
   try {
+    // 9.5GB Storage Capacity Check
+    const hasCapacity = await checkStorageCapacity();
+    if (!hasCapacity) {
+      return;
+    }
+
     const publicUrl = await uploadClientImage(file);
     const payload = {
       name: document.getElementById("customName").value.trim(),
       phone: document.getElementById("customPhone").value.trim(),
       category: document.getElementById("customType").value,
       description: document.getElementById("customNotes").value.trim(),
-      image_url: publicUrl
+      image_url: publicUrl,
+      file_size: file.size
     };
 
     await createCustomRequest(payload);
@@ -283,35 +369,41 @@ function renderFaq(){
    ============================================================ */
 
 /**
- * Asynchronously fetches all available items from catalog_items table in Supabase,
+ * Asynchronously fetches paginated items from catalog_items table in Supabase,
  * resolves Supabase storage public URLs for image sources, and dynamically populates
  * the public-facing 'Gallery' and 'Catalog' (products) sections of the website.
+ * @param {boolean} append - If true, appends to existing catalog arrays; otherwise overwrites.
  */
-async function loadPublicCatalog() {
+async function loadPublicCatalog(append = false) {
   const sb = typeof getSupabase === "function" ? getSupabase() : null;
   if (!sb && typeof isSupabaseConfigured === "function" && !isSupabaseConfigured()) {
     console.log("Supabase not fully configured yet — catalog remains empty.");
     return;
   }
 
+  if (!append) {
+    currentCatalogOffset = 0;
+  }
+
   try {
+    const fromIndex = currentCatalogOffset;
+    const toIndex = currentCatalogOffset + CATALOG_LIMIT - 1;
+
     let dbItems = null;
-    if (typeof fetchCatalogItems === "function") {
-      dbItems = await fetchCatalogItems();
+    if (typeof fetchCatalogItemsPaginated === "function") {
+      dbItems = await fetchCatalogItemsPaginated(fromIndex, toIndex);
     } else if (sb) {
       const { data, error } = await sb
         .from("catalog_items")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(fromIndex, toIndex);
       if (error) throw error;
       dbItems = data;
     }
 
-    if (dbItems && Array.isArray(dbItems) && dbItems.length > 0) {
-      rawCatalogItems = dbItems;
-      
-      // Map products array: [name, category, description, image_url, code, metal_and_weight]
-      products = dbItems.map(item => {
+    if (dbItems && Array.isArray(dbItems)) {
+      const mapProduct = item => {
         let imgUrl = item.image_url || "img/logo.png";
         if (item.image_path && sb) {
           const { data: publicUrlData } = sb.storage.from("jewelry-images").getPublicUrl(item.image_path);
@@ -327,10 +419,9 @@ async function loadPublicCatalog() {
           item.code || `JTS-${item.id}`,
           `${item.est_weight || '10g'} • ${item.metal || 'Gold 22K'}`
         ];
-      });
+      };
 
-      // Map gallery array: [name, category, image_url, code, est_weight, metal, dimensions]
-      gallery = dbItems.map(item => {
+      const mapGallery = item => {
         let imgUrl = item.image_url || "img/logo.png";
         if (item.image_path && sb) {
           const { data: publicUrlData } = sb.storage.from("jewelry-images").getPublicUrl(item.image_path);
@@ -347,7 +438,20 @@ async function loadPublicCatalog() {
           item.metal || "Gold 22K",
           item.size || "Standard"
         ];
-      });
+      };
+
+      const newProducts = dbItems.map(mapProduct);
+      const newGallery = dbItems.map(mapGallery);
+
+      if (append) {
+        rawCatalogItems = [...rawCatalogItems, ...dbItems];
+        products = [...products, ...newProducts];
+        gallery = [...gallery, ...newGallery];
+      } else {
+        rawCatalogItems = dbItems;
+        products = newProducts;
+        gallery = newGallery;
+      }
 
       // Update category lists dynamically
       productCategories = ["All", ...new Set(products.map(p => p[1]))];
@@ -358,10 +462,33 @@ async function loadPublicCatalog() {
       renderProducts();
       renderFilters();
       renderGallery();
+
+      // Toggle visibility of the "Load More" buttons based on whether data returned equals CATALOG_LIMIT
+      const hasMore = (dbItems.length === CATALOG_LIMIT);
+      const prodBtn = document.getElementById("loadMoreProductsBtn");
+      const galBtn = document.getElementById("loadMoreGalleryBtn");
+      if (prodBtn) prodBtn.style.display = hasMore ? "inline-block" : "none";
+      if (galBtn) galBtn.style.display = hasMore ? "inline-block" : "none";
     }
   } catch (err) {
     console.warn("Failed to load public catalog from Supabase:", err);
   }
+}
+
+/**
+ * Increments offset by 20 and fetches subsequent batch of catalog items.
+ */
+async function loadMoreItems() {
+  currentCatalogOffset += CATALOG_LIMIT;
+  const prodBtn = document.getElementById("loadMoreProductsBtn");
+  const galBtn = document.getElementById("loadMoreGalleryBtn");
+  if (prodBtn) prodBtn.textContent = "Loading More...";
+  if (galBtn) galBtn.textContent = "Loading More...";
+
+  await loadPublicCatalog(true);
+
+  if (prodBtn) prodBtn.textContent = "Load More Designs";
+  if (galBtn) galBtn.textContent = "Load More Models";
 }
 
 /**
@@ -695,7 +822,7 @@ async function renderAdminClientRequestsTable() {
     await populateWorkerDropdowns();
   }
 
-  tbody.innerHTML = `<tr><td colspan="6" class="empty">Fetching client requests from database...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="7" class="empty">Fetching client requests from database...</td></tr>`;
 
   let requests = [];
   try {
@@ -707,7 +834,7 @@ async function renderAdminClientRequestsTable() {
   if (countEl) countEl.textContent = requests.length;
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty">No custom CAD client requests found yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">No custom CAD client requests found yet.</td></tr>`;
     return;
   }
 
@@ -719,6 +846,7 @@ async function renderAdminClientRequestsTable() {
     const phone = escapeHtml(req.phone || 'N/A');
     const category = escapeHtml(req.category || 'Custom CAD');
     const notes = escapeHtml(req.description || 'No notes provided.');
+    const statusBadge = getStatusBadge(req.status);
     const currentWorker = req.assigned_worker_id || '';
 
     let workerOptions = `<option value="">Unassigned</option>`;
@@ -739,6 +867,7 @@ async function renderAdminClientRequestsTable() {
         <td><a href="tel:${phone}">${phone}</a></td>
         <td><span class="tag">${category}</span></td>
         <td style="max-width:250px; font-size:13px; line-height:1.4;">${notes}</td>
+        <td>${statusBadge}</td>
         <td>
           <select class="admin-select" style="padding:6px; font-size:13px;" onchange="handleAssignWorkerCustomRequest('${safeId}', this.value)">
             ${workerOptions}
@@ -767,7 +896,7 @@ async function renderAdminCatalogTable() {
   const countEl = document.getElementById("adminCatalogCount");
   if (!tbody) return;
 
-  tbody.innerHTML = `<tr><td colspan="7" class="empty">Fetching items from database...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="8" class="empty">Fetching items from database...</td></tr>`;
 
   let dbItems = [];
   try {
@@ -781,7 +910,7 @@ async function renderAdminCatalogTable() {
   countEl.textContent = itemsToRender.length;
 
   if (itemsToRender.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty">No catalog items found. Use the form above to upload a new item.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">No catalog items found. Use the form above to upload a new item.</td></tr>`;
     return;
   }
 
@@ -804,6 +933,7 @@ async function renderAdminCatalogTable() {
       }
     }
     const deadline = item.deadline ? item.deadline : 'None';
+    const statusBadge = getStatusBadge(item.status);
 
     return `
       <tr>
@@ -813,6 +943,7 @@ async function renderAdminCatalogTable() {
         <td>${metal}<br><small>${weight}</small></td>
         <td>${worker}</td>
         <td>${deadline}</td>
+        <td>${statusBadge}</td>
         <td>
           <div class="action-btns">
             <button class="btn btn-outline btn-xs" onclick="openEditItemModal('${id}')">Edit</button>
@@ -837,13 +968,27 @@ async function handleCreateItemSubmit(event) {
   event.preventDefault();
   const btn = document.getElementById("createItemBtn");
   const status = document.getElementById("createItemStatus");
+  const photoFile = document.getElementById("newItemPhoto")?.files?.[0];
+
+  // 5MB Limit Failsafe
+  if (photoFile && photoFile.size > 5242880) {
+    alert("Photo file exceeds 5MB limit. Please upload a smaller image file (maximum 5MB).");
+    return;
+  }
 
   btn.disabled = true;
-  btn.textContent = "Uploading & Saving...";
+  btn.textContent = "Checking Storage & Uploading...";
   status.classList.add("hidden");
 
   try {
-    const photoFile = document.getElementById("newItemPhoto")?.files?.[0];
+    // 9.5GB Storage Capacity Check (if uploading a photo file)
+    if (photoFile) {
+      const hasCapacity = await checkStorageCapacity();
+      if (!hasCapacity) {
+        return;
+      }
+    }
+
     const directUrl = document.getElementById("newItemImageUrl")?.value.trim();
     const workerVal = document.getElementById("newItemWorker")?.value?.trim();
 
@@ -858,7 +1003,8 @@ async function handleCreateItemSubmit(event) {
       assigned_date: document.getElementById("newItemAssignedDate").value || null,
       deadline: document.getElementById("newItemDeadline").value || null,
       description: document.getElementById("newItemDescription").value.trim(),
-      image_url: directUrl || null
+      image_url: directUrl || null,
+      file_size: photoFile ? photoFile.size : 0
     };
 
     const newItem = await createCatalogItem(itemData, photoFile);
@@ -1042,6 +1188,8 @@ async function renderWorkerPortal() {
 
     return {
       id: task.id,
+      tableName: 'catalog_items',
+      status: task.status || 'Pending',
       name,
       categoryTag: `<span class="tag">${category}</span>`,
       meta1: `<b>Dimensions:</b> ${size} | <b>Est Weight:</b> ${weight}`,
@@ -1064,6 +1212,8 @@ async function renderWorkerPortal() {
 
     return {
       id: req.id,
+      tableName: 'custom_requests',
+      status: req.status || 'Pending',
       name,
       categoryTag: `<span class="tag" style="background:rgba(212,175,55,0.2); border:1px solid #d4af37; color:var(--text);">${category} • Client Request</span>`,
       meta1: `<b>Client Phone:</b> <a href="tel:${phone}">${phone}</a>`,
@@ -1092,6 +1242,8 @@ async function renderWorkerPortal() {
   grid.innerHTML = allTasks.map(task => {
     const safeUrl = String(task.downloadUrl).replace(/'/g, "\\'");
     const safeFilename = String(task.filename).replace(/'/g, "\\'");
+    const safeId = String(task.id).replace(/'/g, "\\'");
+    const currentStatus = (task.status || "Pending").trim();
 
     return `
       <article class="glass worker-task-card">
@@ -1105,6 +1257,14 @@ async function renderWorkerPortal() {
           <p class="task-meta-line">${task.meta1}</p>
           <p class="task-meta-line">${task.meta2}</p>
           <p class="task-desc">${task.description}</p>
+          <div style="margin: 12px 0;">
+            <label style="display:block; font:600 10px Montserrat; text-transform:uppercase; color:var(--gold); margin-bottom:4px;">Task Status:</label>
+            <select class="admin-select" style="width:100%; padding:8px 10px; font-size:12px; border-radius:8px;" onchange="updateTaskStatus('${task.tableName}', '${safeId}', this.value)">
+              <option value="Pending" ${currentStatus === 'Pending' ? 'selected' : ''}>⏳ Pending</option>
+              <option value="In Progress" ${currentStatus === 'In Progress' ? 'selected' : ''}>⚡ In Progress</option>
+              <option value="Completed" ${currentStatus === 'Completed' ? 'selected' : ''}>✓ Completed</option>
+            </select>
+          </div>
           <button type="button" onclick="downloadImage('${safeUrl}', '${safeFilename}')" class="btn btn-gold btn-block">
             ⬇ Download High-Res Image
           </button>
@@ -1147,7 +1307,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderFaq();
   populateFaqStructuredData();
   calculate();
-  setRate(); // This forces the box to visually fill with the 6850 rate immediately
+  
   // Auto-close mobile menu when a navigation link is clicked
   document.querySelectorAll("#mobileMenu a").forEach(link => {
     link.addEventListener("click", () => {
