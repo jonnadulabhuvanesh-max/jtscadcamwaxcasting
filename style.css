@@ -1094,5 +1094,39 @@ img{max-width:100%}
   .dashboard-header {
     flex-direction: column;
   }
+}/* --- BIG DAY MOBILE FIXES --- */
+@media (max-width: 850px) {
+  /* Protect the logo from shrinking */
+  .brand {
+    flex-shrink: 0 !important;
+    min-width: max-content !important;
+  }
+  
+  /* Hide the wide dashboard button on the top nav so it doesn't crush the logo */
+  #staffLoginNavBtn {
+    display: none !important;
+  }
+
+  /* Stack the Hero buttons vertically on mobile */
+  .hero .actions {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 12px !important;
+  }
+  
+  .hero .actions .btn {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+}
+
+/* Fix the Topline so it stretches edge-to-edge on Desktop */
+.topline {
+  width: 100% !important;
+  max-width: 100vw !important;
+  box-sizing: border-box !important;
+  left: 0;
+  right: 0;
 }
 
