@@ -167,29 +167,25 @@ function setRate(){
   }
   calculate();
 }
-function calculate(){
-  const weightInp = document.getElementById("calcWeight");
-  const rateInp = document.getElementById("calcRate");
-  const metalSelect = document.getElementById("calcMetal");
-  const metalVal = metalSelect?.value || "Gold 22K";
+function calculate() {
+  const weightInput = document.getElementById("calcWeight")?.value;
+  const rateInput = document.getElementById("calcRate")?.value;
+  const metalVal = document.getElementById("calcMetal")?.value || "Gold 22K";
+  
+  const w = parseFloat(weightInput) || 0;
+  const r = parseFloat(rateInput) || 0;
 
-  const rawWeight = weightInp ? weightInp.value.trim() : "";
-  const w = parseFloat(rawWeight) || 0;
-
-  let r = parseFloat(rateInp?.value) || 0;
-  if (!r) {
-    r = rates[metalVal] || 6850;
-  }
-
-  if (!rawWeight || w <= 0) {
-    if(document.getElementById("outWeight")) document.getElementById("outWeight").textContent = `0 grams (${metalVal})`;
+  // If either box is actually empty or 0, reset everything to ₹0
+  if (w === 0 || r === 0) {
+    if(document.getElementById("outWeight")) document.getElementById("outWeight").textContent = `${w} grams (${metalVal})`;
     if(document.getElementById("outMetal")) document.getElementById("outMetal").textContent = "₹0";
     if(document.getElementById("outMaking")) document.getElementById("outMaking").textContent = "₹0";
     if(document.getElementById("outAdvance")) document.getElementById("outAdvance").textContent = "₹0";
     if(document.getElementById("outTotal")) document.getElementById("outTotal").textContent = "₹0";
-    return;
+    return; // Stop the calculation here
   }
 
+  // Otherwise, do the math!
   const metal = w * r;
   const making = metal * MAKING_CHARGE_RATE;
   const adv = metal * 0.3;
