@@ -151,8 +151,10 @@
     <div class="section-head"><span class="eyebrow">Catalog Categories</span><h2>Signature <span>CAD Wax Resin Lines</span></h2><p>Explore our six featured CAD jewelry product lines. Additional designs can be requested directly from JTS.</p></div>
     <div class="category-row" id="categories"></div>
     <div class="product-grid" id="productGrid"></div>
-    <div class="center"><a class="btn btn-outline" href="#gallery">Browse 12 Featured CAD Models →</a></div>
-  </div>
+    <div class="center" style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
+  <button id="loadMoreProductsBtn" class="btn btn-gold" onclick="loadMoreItems()" style="display: none; width: 250px;">Load More Designs</button>
+  <a class="btn btn-outline" href="#gallery" style="width: 250px;">Browse All Categories ↓</a>
+</div>
 </section>
 
 <section id="gallery" class="section dark-grid">
@@ -161,6 +163,9 @@
     <p class="image-disclaimer"><b>Image note:</b> The current gallery uses illustrative reference images, not photographs of JTS workshop output. Replace them with your own CAD renders, wax-tree photos and casting-workshop images for stronger proof of work.</p><div class="gallery-tools"><input id="gallerySearch" placeholder="Search CAD code, design or category…" oninput="renderGallery()"><div id="galleryFilters" class="filters"></div></div>
     <div class="gallery-grid" id="galleryGrid"></div>
     <p id="noGallery" class="empty hidden">No CAD Models Match Your Search</p>
+    <div class="center" style="margin-top: 24px;">
+  <button id="loadMoreGalleryBtn" class="btn btn-gold" onclick="loadMoreItems()" style="display: none; width: 250px;">Load More Models</button>
+</div>
   </div>
 </section>
 
@@ -197,8 +202,8 @@
           <option value="Engagement Ring">Engagement / Solitaire Ring</option><option value="Temple / Deity Pendant">Temple / Deity Pendant</option><option value="Bridal Choker / Haram">Bridal Choker / Haram</option><option value="Broad Bangle / Kada">Broad Bangle / Kada</option><option value="Earrings / Jhumka">Earrings / Jhumka Pair</option><option value="Manga Malai Chain">Manga Malai / Traditional Chain</option><option value="Men's Signet Ring">Men's Signet Lion Ring</option><option value="Custom CAD Design">Custom Bespoke CAD Design</option>
         </select></label>
         <label>2. Material Alloy<select id="calcMetal" onchange="setRate()"><option>Gold 22K</option><option>Gold 24K</option><option>Gold 18K</option><option>Silver 925</option><option>Platinum</option></select></label>
-        <label>3. Metal Weight (Grams)<input id="calcWeight" type="number" min="0.1" step="0.1" value="10" oninput="calculate()"></label>
-        <label>4. Applied Market Rate (₹ / Gram)<input id="calcRate" type="number" value="6850" oninput="calculate()"><small>Custom Rate Active when edited.</small></label>
+        <label>3. Metal Weight (Grams)<input id="calcWeight" type="number" min="0.1" step="0.1" placeholder="e.g. 10" oninput="calculate()"></label>
+        <label>4. Applied Market Rate (₹ / Gram)<input id="calcRate" type="number" placeholder="6850" oninput="calculate()"><small>Custom Rate Active when edited.</small></label>
         <button class="btn btn-outline btn-block" onclick="syncRates()">↻ Restore Reference Rate</button>
       </div>
       <div class="glass breakdown">

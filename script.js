@@ -168,21 +168,48 @@ function setRate(){
   calculate();
 }
 function calculate(){
-  const w=parseFloat(document.getElementById("calcWeight")?.value)||0,r=parseFloat(document.getElementById("calcRate")?.value)||0;
-  const metalVal = document.getElementById("calcMetal")?.value || "Gold 22K";
-  const metal=w*r,making=metal*MAKING_CHARGE_RATE,adv=metal*.3,total=metal+making;
-  if(document.getElementById("outWeight")) document.getElementById("outWeight").textContent=`${w} grams (${metalVal})`;
-  if(document.getElementById("outMetal")) document.getElementById("outMetal").textContent=money(metal);
-  if(document.getElementById("outMaking")) document.getElementById("outMaking").textContent=money(making);
-  if(document.getElementById("outAdvance")) document.getElementById("outAdvance").textContent=money(adv);
-  if(document.getElementById("outTotal")) document.getElementById("outTotal").textContent=money(total);
+  const weightInp = document.getElementById("calcWeight");
+  const rateInp = document.getElementById("calcRate");
+  const metalSelect = document.getElementById("calcMetal");
+  const metalVal = metalSelect?.value || "Gold 22K";
+
+  const rawWeight = weightInp ? weightInp.value.trim() : "";
+  const w = parseFloat(rawWeight) || 0;
+
+  let r = parseFloat(rateInp?.value) || 0;
+  if (!r) {
+    r = rates[metalVal] || 6850;
+  }
+
+  if (!rawWeight || w <= 0) {
+    if(document.getElementById("outWeight")) document.getElementById("outWeight").textContent = `0 grams (${metalVal})`;
+    if(document.getElementById("outMetal")) document.getElementById("outMetal").textContent = "₹0";
+    if(document.getElementById("outMaking")) document.getElementById("outMaking").textContent = "₹0";
+    if(document.getElementById("outAdvance")) document.getElementById("outAdvance").textContent = "₹0";
+    if(document.getElementById("outTotal")) document.getElementById("outTotal").textContent = "₹0";
+    return;
+  }
+
+  const metal = w * r;
+  const making = metal * MAKING_CHARGE_RATE;
+  const adv = metal * 0.3;
+  const total = metal + making;
+
+  if(document.getElementById("outWeight")) document.getElementById("outWeight").textContent = `${w} grams (${metalVal})`;
+  if(document.getElementById("outMetal")) document.getElementById("outMetal").textContent = money(metal);
+  if(document.getElementById("outMaking")) document.getElementById("outMaking").textContent = money(making);
+  if(document.getElementById("outAdvance")) document.getElementById("outAdvance").textContent = money(adv);
+  if(document.getElementById("outTotal")) document.getElementById("outTotal").textContent = money(total);
 }
 function syncRates(){
   setRate();
   alert("Reference rate restored. This is not a live market feed; confirm the current rate with JTS before booking.");
 }
 function quoteFromCalc(){
-  const t=document.getElementById("calcType").value,m=document.getElementById("calcMetal").value,w=document.getElementById("calcWeight").value,r=document.getElementById("calcRate").value;
+  const t = document.getElementById("calcType")?.value || "Engagement Ring";
+  const m = document.getElementById("calcMetal")?.value || "Gold 22K";
+  const w = document.getElementById("calcWeight")?.value || "10";
+  const r = document.getElementById("calcRate")?.value || rates[m] || "6850";
   sendWA(`Hello JTS CAD CAM, I need an exact quote for ${t} in ${m}, estimated weight ${w}g. Rate applied: ₹${r}/g. Please include the 3% making charge and provide separate hallmark charges and taxes.`);
 }
 async function submitCustom(e) {

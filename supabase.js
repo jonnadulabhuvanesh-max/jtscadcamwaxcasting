@@ -190,6 +190,46 @@ async function fetchCatalogItems() {
 }
 
 /**
+ * Fetches a paginated range of catalog items.
+ * @param {number} from - Start index (0-based, inclusive).
+ * @param {number} to   - End index (0-based, inclusive).
+ * @returns {Array} Array of catalog item rows.
+ */
+async function fetchCatalogItemsPaginated(from, to) {
+  const sb = getSupabase();
+  if (!sb) return [];
+
+  const { data, error } = await sb
+    .from("catalog_items")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * Updates the status field on a given table row.
+ * @param {string} table  - 'catalog_items' or 'custom_requests'
+ * @param {string} id     - Row ID (uuid)
+ * @param {string} status - New status: 'Pending', 'In Progress', or 'Completed'
+ */
+async function updateItemStatus(table, id, status) {
+  const sb = getSupabase();
+  if (!sb) throw new Error("Supabase not configured.");
+
+  const { data, error } = await sb
+    .from(table)
+    .update({ status })
+    .eq("id", id)
+    .select();
+
+  if (error) throw error;
+  return data ? data[0] : null;
+}
+
+/**
  * Uploads a photo file to Supabase Storage 'jewelry-images' bucket.
  */
 async function uploadJewelryImage(file) {
