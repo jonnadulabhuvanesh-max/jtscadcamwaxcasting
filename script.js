@@ -1154,6 +1154,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderFaq();
   populateFaqStructuredData();
   calculate();
+  setRate(); // This forces the box to visually fill with the 6850 rate immediately
 
   // Automatically load live public catalog from Supabase on page load
   await loadPublicCatalog();
