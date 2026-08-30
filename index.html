@@ -431,7 +431,7 @@
           <button class="btn btn-outline btn-sm" onclick="renderAdminClientRequestsTable()">↻ Refresh Requests</button>
         </div>
         <div class="table-responsive">
-          <table class="admin-table">
+          <table class="admin-table" id="adminCustomReqTable">
             <thead>
               <tr>
                 <th>Photo</th>
@@ -441,10 +441,11 @@
                 <th>Notes / Description</th>
                 <th>Status</th>
                 <th>Assigned Worker</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="adminClientRequestsTableBody">
-              <tr><td colspan="7" class="empty">Loading client requests from Supabase...</td></tr>
+              <tr><td colspan="8" class="empty">Loading client requests from Supabase...</td></tr>
             </tbody>
           </table>
         </div>

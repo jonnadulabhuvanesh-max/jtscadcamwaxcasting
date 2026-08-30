@@ -813,6 +813,37 @@ function switchAdminTab(tab) {
   }
 }
 
+async function loadAdminCustomRequests() {
+  await renderAdminClientRequestsTable();
+}
+
+async function deleteCustomRequest(taskId) {
+  if (!confirm("Are you sure you want to completely delete this request? This cannot be undone.")) {
+    return;
+  }
+
+  try {
+    const sb = typeof getSupabase === "function" ? getSupabase() : null;
+    if (!sb) {
+      alert("Supabase client is not configured.");
+      return;
+    }
+
+    const { error } = await sb.from("custom_requests").delete().eq("id", taskId);
+    if (error) throw error;
+
+    if (currentUser) {
+      await logActivity(currentUser.id, currentUser.email, "Delete Custom Request", { requestId: taskId });
+    }
+
+    await loadAdminCustomRequests();
+    alert("Request deleted successfully.");
+  } catch (err) {
+    console.error("Failed to delete custom request:", err);
+    alert(`Failed to delete request: ${err.message || err}`);
+  }
+}
+
 async function renderAdminClientRequestsTable() {
   const tbody = document.getElementById("adminClientRequestsTableBody");
   const countEl = document.getElementById("adminClientRequestsCount");
@@ -822,7 +853,7 @@ async function renderAdminClientRequestsTable() {
     await populateWorkerDropdowns();
   }
 
-  tbody.innerHTML = `<tr><td colspan="7" class="empty">Fetching client requests from database...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="8" class="empty">Fetching client requests from database...</td></tr>`;
 
   let requests = [];
   try {
@@ -834,7 +865,7 @@ async function renderAdminClientRequestsTable() {
   if (countEl) countEl.textContent = requests.length;
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty">No custom CAD client requests found yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">No custom CAD client requests found yet.</td></tr>`;
     return;
   }
 
@@ -872,6 +903,11 @@ async function renderAdminClientRequestsTable() {
           <select class="admin-select" style="padding:6px; font-size:13px;" onchange="handleAssignWorkerCustomRequest('${safeId}', this.value)">
             ${workerOptions}
           </select>
+        </td>
+        <td>
+          <button class="btn btn-xs" style="background:#ef4444; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;" onclick="deleteCustomRequest('${safeId}')">
+            Reject / Delete
+          </button>
         </td>
       </tr>
     `;

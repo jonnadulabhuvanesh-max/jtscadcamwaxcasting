@@ -385,6 +385,18 @@ async function updateCustomRequestWorker(id, workerId) {
 }
 
 /**
+ * Deletes a custom request record by ID.
+ */
+async function deleteCustomRequestRecord(id) {
+  const sb = getSupabase();
+  if (!sb) throw new Error("Supabase not configured.");
+
+  const { error } = await sb.from("custom_requests").delete().eq("id", id);
+  if (error) throw error;
+  return true;
+}
+
+/**
  * Fetches custom requests assigned to a specific worker.
  */
 async function fetchWorkerCustomRequests(workerId) {
