@@ -5,8 +5,7 @@ from supabase import create_client, Client
 
 # --- 1. Supabase Credentials (Secured) ---
 SUPABASE_URL = "https://qigttukglcpeewxibqcf.supabase.co"
-SUPABASE_KEY = os.environ.get("sb_secret_IvxXs8VWv3FS3prz-cpM1Q_KdUYwqCS") 
-
+SUPABASE_KEY = os.environ.get("SUPABASE_SECRET_KEY")
 if not SUPABASE_KEY:
     print("FATAL ERROR: SUPABASE_SECRET_KEY environment variable is missing!")
     exit()
@@ -15,7 +14,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 2. Gmail Credentials (Secured) ---
 EMAIL_ADDRESS = "jtscadcamwaxcasting@gmail.com"
-EMAIL_PASSWORD = os.environ.get("bskydwyopjjnsvvt") 
+EMAIL_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD")
 
 if not EMAIL_PASSWORD:
     print("FATAL ERROR: GMAIL_APP_PASSWORD environment variable is missing!")
