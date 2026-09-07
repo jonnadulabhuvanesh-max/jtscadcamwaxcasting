@@ -53,8 +53,47 @@ def check_for_new_orders():
     except Exception as e:
         print(f"Database error: {e}")
 
+def check_for_bad_reviews():
+    print("Checking Supabase for low star reviews (<= 3 stars)...")
+    try:
+        response = supabase.table('reviews').select('*').lte('stars', 3).eq('alert_sent', False).execute()
+        
+        for review in response.data:
+            review_id = review['id']
+            client_name = review.get('name', 'Anonymous')
+            client_place = review.get('place', 'No place provided')
+            stars = review.get('stars', 0)
+            description = review.get('description', 'No description provided.')
+
+            msg = EmailMessage()
+            msg.set_content(
+                f"⚠️ Low Customer Rating / Review Alert!\n\n"
+                f"Client Name: {client_name}\n"
+                f"Location / Place: {client_place}\n"
+                f"Rating: {stars} / 5 Stars\n"
+                f"Review Description:\n{description}\n"
+            )
+            msg['Subject'] = f"⚠️ Low Review Alert ({stars}★): {client_name}"
+            msg['From'] = EMAIL_ADDRESS
+            msg['To'] = "jtscadcamwaxcasting@gmail.com"
+
+            try:
+                with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                    smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+                    smtp.send_message(msg)
+                    print(f"Alert successfully sent for review by {client_name} ({stars} stars)!")
+                
+                # Update alert_sent to True to prevent duplicate emails
+                supabase.table('reviews').update({'alert_sent': True}).eq('id', review_id).execute()
+            except Exception as mail_err:
+                print(f"Failed to send email for review ID {review_id}: {mail_err}")
+
+    except Exception as e:
+        print(f"Database error while checking reviews: {e}")
+
 # --- 3. Serverless Execution Logic ---
 if __name__ == "__main__":
-    print("GitHub Actions Worker Triggered. Checking for new orders...")
+    print("GitHub Actions Worker Triggered. Checking for new orders and reviews...")
     check_for_new_orders()
+    check_for_bad_reviews()
     print("Worker task complete. Shutting down.")

@@ -359,6 +359,123 @@ function renderReviews(){
   const grid = document.getElementById("reviewsGrid");
   if(grid) grid.innerHTML=reviews.map(r=>`<article class="glass review"><div class="stars">★★★★★</div><p>“${r[2]}”</p><b>${r[0]}</b><small> • ${r[1]} • ${r[3]}</small></article>`).join("");
 }
+
+/**
+ * Helper to render a single review card and append it to reviewsGrid.
+ * Used to add live Supabase reviews next to existing hardcoded reviews.
+ */
+function appendReviewCard(review) {
+  const grid = document.getElementById("reviewsGrid");
+  if (!grid) return;
+
+  const starCount = Math.max(1, Math.min(5, Number(review.stars) || 5));
+  const starIcons = "★".repeat(starCount) + "☆".repeat(5 - starCount);
+
+  const card = document.createElement("article");
+  card.className = "glass review";
+  card.innerHTML = `
+    <div class="stars">${starIcons}</div>
+    <p>“${escapeHtml(review.description || '')}”</p>
+    <b>${escapeHtml(review.name || 'Anonymous')}</b>
+    <small> • ${escapeHtml(review.place || 'Verified Client')}</small>
+  `;
+  grid.appendChild(card);
+}
+
+/**
+ * Fetches reviews where stars >= 4 from Supabase and appends them to reviewsGrid.
+ * Preserves all existing hardcoded reviews already present on the page.
+ */
+async function fetchSupabaseReviews() {
+  const sb = typeof getSupabase === "function" ? getSupabase() : null;
+  if (!sb) return;
+
+  try {
+    const { data, error } = await sb
+      .from("reviews")
+      .select("*")
+      .gte("stars", 4)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return;
+
+    data.forEach(r => {
+      appendReviewCard(r);
+    });
+  } catch (err) {
+    console.warn("Could not fetch reviews from Supabase:", err);
+  }
+}
+
+/**
+ * Event listener handler to submit a new review into Supabase 'reviews' table.
+ */
+async function handleReviewSubmit(e) {
+  if (e) e.preventDefault();
+
+  const nameInput = document.getElementById("reviewName");
+  const placeInput = document.getElementById("reviewPlace");
+  const starsInput = document.getElementById("reviewStars");
+  const descInput = document.getElementById("reviewDescription");
+  const submitBtn = document.getElementById("reviewSubmitBtn");
+  const successEl = document.getElementById("reviewSuccess");
+  const errorEl = document.getElementById("reviewError");
+
+  const name = nameInput ? nameInput.value.trim() : "";
+  const place = placeInput ? placeInput.value.trim() : "";
+  const stars = starsInput ? parseInt(starsInput.value, 10) : 5;
+  const description = descInput ? descInput.value.trim() : "";
+
+  if (!name || !description) {
+    alert("Please fill in your name and review description.");
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Submitting Review...";
+  }
+  if (successEl) successEl.classList.add("hidden");
+  if (errorEl) errorEl.classList.add("hidden");
+
+  try {
+    const sb = typeof getSupabase === "function" ? getSupabase() : null;
+    if (!sb) throw new Error("Supabase is not configured.");
+
+    const { data, error } = await sb.from("reviews").insert([
+      {
+        name,
+        place,
+        stars,
+        description,
+        alert_sent: false
+      }
+    ]);
+
+    if (error) throw error;
+
+    if (successEl) successEl.classList.remove("hidden");
+    const form = document.getElementById("reviewForm");
+    if (form) form.reset();
+
+    // If review is high-star (>= 4), append immediately to the grid
+    if (stars >= 4) {
+      appendReviewCard({ name, place, stars, description });
+    }
+  } catch (err) {
+    console.error("Failed to submit review:", err);
+    if (errorEl) {
+      errorEl.innerText = "⚠ " + (err.message || "Failed to submit review. Please try again.");
+      errorEl.classList.remove("hidden");
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = "Submit Review";
+    }
+  }
+}
 function renderFaq(){
   const list = document.getElementById("faqList");
   if(list) list.innerHTML=faqs.map((f,i)=>`<div class="faq"><button onclick="this.parentElement.classList.toggle('open')">${f[0]} <span>＋</span></button><p>${f[1]}</p></div>`).join("");
@@ -1340,10 +1457,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderFilters();
   renderGallery();
   renderReviews();
+  await fetchSupabaseReviews();
   renderFaq();
   populateFaqStructuredData();
   calculate();
   
+  // Attach review form listener
+  const reviewForm = document.getElementById("reviewForm");
+  if (reviewForm) {
+    reviewForm.addEventListener("submit", handleReviewSubmit);
+  }
+
   // Auto-close mobile menu when a navigation link is clicked
   document.querySelectorAll("#mobileMenu a").forEach(link => {
     link.addEventListener("click", () => {

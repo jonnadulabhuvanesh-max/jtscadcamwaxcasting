@@ -235,6 +235,42 @@
   <div class="container">
     <div class="section-head"><span class="eyebrow">Client Feedback</span><h2>What Clients <span>Say About JTS</span></h2><p>Published feedback from the site’s current client-review set. Contact JTS directly for references or recent work samples.</p></div>
     <div class="review-grid" id="reviewsGrid"></div>
+
+    <!-- Leave a Review Form -->
+    <div style="max-width: 680px; margin: 50px auto 0;">
+      <form id="reviewForm" class="glass form">
+        <h3>Leave a Review</h3>
+        <p>Share your experience with JTS CAD CAM Wax Casting Studio.</p>
+
+        <div class="two">
+          <label>Your Name *
+            <input type="text" id="reviewName" required placeholder="e.g. Ramesh Kumar">
+          </label>
+          <label>Place / City *
+            <input type="text" id="reviewPlace" required placeholder="e.g. Vijayawada, AP">
+          </label>
+        </div>
+
+        <label>Rating (Stars) *
+          <select id="reviewStars" required>
+            <option value="5">★★★★★ (5 Stars - Excellent)</option>
+            <option value="4">★★★★☆ (4 Stars - Good)</option>
+            <option value="3">★★★☆☆ (3 Stars - Average)</option>
+            <option value="2">★★☆☆☆ (2 Stars - Below Average)</option>
+            <option value="1">★☆☆☆☆ (1 Star - Poor)</option>
+          </select>
+        </label>
+
+        <label>Review Description *
+          <textarea id="reviewDescription" rows="4" required placeholder="Tell us about the CAD quality, turnaround time, casting smoothness, etc."></textarea>
+        </label>
+
+        <button type="submit" id="reviewSubmitBtn" class="btn btn-gold btn-block">Submit Review</button>
+        <p id="reviewSuccess" class="success hidden" style="margin-top: 15px;">✓ Thank you! Your review has been submitted successfully.</p>
+        <p id="reviewError" class="success hidden" style="margin-top: 15px; color: #ff8b8b; background: rgba(255, 100, 100, 0.1);">⚠ Failed to submit review. Please try again.</p>
+      </form>
+    </div>
+
     <div class="section-head faq-head"><span class="eyebrow">Knowledge Base</span><h2>Frequently Asked <span>Questions</span></h2></div>
     <div id="faqList" class="faq-list"></div>
   </div>
