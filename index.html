@@ -236,6 +236,11 @@
     <div class="section-head"><span class="eyebrow">Client Feedback</span><h2>What Clients <span>Say About JTS</span></h2><p>Published feedback from the site’s current client-review set. Contact JTS directly for references or recent work samples.</p></div>
     <div class="review-grid" id="reviewsGrid"></div>
 
+    <!-- See More Reviews Button -->
+    <div class="center-btn" style="margin-top: 25px;">
+      <button id="seeMoreReviewsBtn" class="btn btn-outline" style="display: none; min-width: 200px;">See More Reviews</button>
+    </div>
+
     <!-- Leave a Review Form -->
     <div style="max-width: 680px; margin: 50px auto 0;">
       <form id="reviewForm" class="glass form">
@@ -396,6 +401,7 @@
       <button class="tab-btn active" id="tabCatalogBtn" onclick="switchAdminTab('catalog')">Catalog & Upload</button>
       <button class="tab-btn" id="tabClientRequestsBtn" onclick="switchAdminTab('clientRequests')">Client Requests</button>
       <button class="tab-btn" id="tabAuditBtn" onclick="switchAdminTab('audit')">Activity Audit Log</button>
+      <button class="tab-btn" id="tabReviewsBtn" onclick="switchAdminTab('reviews')">Review Moderation</button>
     </div>
 
     <!-- Admin Tab 1: Catalog & Upload -->
@@ -507,6 +513,32 @@
             </thead>
             <tbody id="adminAuditTableBody">
               <tr><td colspan="4" class="empty">Loading audit history...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Tab 4: Review Moderation -->
+    <div id="adminReviewsTab" class="tab-content hidden">
+      <div class="table-container glass" style="padding: 20px;">
+        <div class="table-header-tools">
+          <h3>Customer Reviews Moderation (<span id="adminReviewsCount">0</span> reviews)</h3>
+          <button class="btn btn-outline btn-sm" onclick="renderAdminReviewsTable()">↻ Refresh Reviews</button>
+        </div>
+        <div class="table-responsive">
+          <table class="admin-table" id="adminReviewsTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Place</th>
+                <th>Stars</th>
+                <th>Description</th>
+                <th style="text-align: center;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminReviewsTableBody">
+              <tr><td colspan="5" class="empty">Loading reviews from Supabase...</td></tr>
             </tbody>
           </table>
         </div>

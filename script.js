@@ -382,30 +382,81 @@ function appendReviewCard(review) {
   grid.appendChild(card);
 }
 
+const REVIEWS_LIMIT = 4;
+let currentReviewsOffset = 0;
+
 /**
- * Fetches reviews where stars >= 4 from Supabase and appends them to reviewsGrid.
- * Preserves all existing hardcoded reviews already present on the page.
+ * Fetches high-star (>= 4) reviews in batches of 4 using Supabase's .range(start, end) method.
+ * Appends the reviews to #reviewsGrid without overwriting hardcoded reviews.
+ * Toggles the 'See More' button visibility based on whether more reviews exist.
+ * @param {boolean} isLoadMore - If true, fetches the next batch and appends.
  */
-async function fetchSupabaseReviews() {
+async function fetchSupabaseReviews(isLoadMore = false) {
   const sb = typeof getSupabase === "function" ? getSupabase() : null;
-  if (!sb) return;
+  const seeMoreBtn = document.getElementById("seeMoreReviewsBtn");
+
+  if (!sb) {
+    if (seeMoreBtn) seeMoreBtn.style.display = "none";
+    return;
+  }
+
+  if (!isLoadMore) {
+    currentReviewsOffset = 0;
+  }
+
+  if (isLoadMore && seeMoreBtn) {
+    seeMoreBtn.disabled = true;
+    seeMoreBtn.innerText = "Loading Reviews...";
+  }
 
   try {
+    const fromIndex = currentReviewsOffset;
+    const toIndex = currentReviewsOffset + REVIEWS_LIMIT - 1;
+
     const { data, error } = await sb
       .from("reviews")
       .select("*")
       .gte("stars", 4)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(fromIndex, toIndex);
 
     if (error) throw error;
-    if (!data || data.length === 0) return;
 
-    data.forEach(r => {
+    const reviewsBatch = data || [];
+
+    // Append each fetched high-star review to reviewsGrid
+    reviewsBatch.forEach(r => {
       appendReviewCard(r);
     });
+
+    // Toggle visibility of the 'See More' button based on whether data returned equals REVIEWS_LIMIT
+    if (seeMoreBtn) {
+      if (reviewsBatch.length < REVIEWS_LIMIT) {
+        seeMoreBtn.style.display = "none";
+      } else {
+        seeMoreBtn.style.display = "inline-flex";
+      }
+    }
   } catch (err) {
     console.warn("Could not fetch reviews from Supabase:", err);
+    if (seeMoreBtn && !isLoadMore) {
+      seeMoreBtn.style.display = "none";
+    }
+  } finally {
+    if (seeMoreBtn) {
+      seeMoreBtn.disabled = false;
+      seeMoreBtn.innerText = "See More Reviews";
+    }
   }
+}
+
+/**
+ * Handler for 'See More' reviews button click.
+ * Advances the offset and fetches the next 4 reviews.
+ */
+async function loadMoreReviews() {
+  currentReviewsOffset += REVIEWS_LIMIT;
+  await fetchSupabaseReviews(true);
 }
 
 /**
@@ -898,23 +949,29 @@ async function openAdminDashboard() {
   await renderAdminCatalogTable();
   await renderAdminClientRequestsTable();
   await renderActivityLogs();
+  await renderAdminReviewsTable();
 }
 
 function switchAdminTab(tab) {
   const catalogBtn = document.getElementById("tabCatalogBtn");
   const clientRequestsBtn = document.getElementById("tabClientRequestsBtn");
   const auditBtn = document.getElementById("tabAuditBtn");
+  const reviewsBtn = document.getElementById("tabReviewsBtn");
+
   const catalogTab = document.getElementById("adminCatalogTab");
   const clientRequestsTab = document.getElementById("adminClientRequestsTab");
   const auditTab = document.getElementById("adminAuditTab");
+  const reviewsTab = document.getElementById("adminReviewsTab");
 
   if (catalogBtn) catalogBtn.classList.remove("active");
   if (clientRequestsBtn) clientRequestsBtn.classList.remove("active");
   if (auditBtn) auditBtn.classList.remove("active");
+  if (reviewsBtn) reviewsBtn.classList.remove("active");
 
   if (catalogTab) catalogTab.classList.add("hidden");
   if (clientRequestsTab) clientRequestsTab.classList.add("hidden");
   if (auditTab) auditTab.classList.add("hidden");
+  if (reviewsTab) reviewsTab.classList.add("hidden");
 
   if (tab === 'catalog') {
     if (catalogBtn) catalogBtn.classList.add("active");
@@ -923,10 +980,112 @@ function switchAdminTab(tab) {
     if (clientRequestsBtn) clientRequestsBtn.classList.add("active");
     if (clientRequestsTab) clientRequestsTab.classList.remove("hidden");
     renderAdminClientRequestsTable();
+  } else if (tab === 'reviews') {
+    if (reviewsBtn) reviewsBtn.classList.add("active");
+    if (reviewsTab) reviewsTab.classList.remove("hidden");
+    renderAdminReviewsTable();
   } else {
     if (auditBtn) auditBtn.classList.add("active");
     if (auditTab) auditTab.classList.remove("hidden");
     renderActivityLogs();
+  }
+}
+
+/**
+ * Fetches ALL reviews (no star filter) from Supabase reviews table
+ * and populates the admin moderation table inside #adminReviewsTab.
+ */
+async function renderAdminReviewsTable() {
+  const tbody = document.getElementById("adminReviewsTableBody");
+  const countEl = document.getElementById("adminReviewsCount");
+  if (!tbody) return;
+
+  const sb = typeof getSupabase === "function" ? getSupabase() : null;
+  if (!sb) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">Supabase is not configured.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = `<tr><td colspan="5" class="empty">Fetching reviews...</td></tr>`;
+
+  try {
+    const { data, error } = await sb
+      .from("reviews")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const reviewsList = data || [];
+    if (countEl) countEl.innerText = reviewsList.length;
+
+    if (reviewsList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="empty">No customer reviews found in database.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = reviewsList.map(review => {
+      const starCount = Math.max(1, Math.min(5, Number(review.stars) || 5));
+      const starIcons = "★".repeat(starCount) + "☆".repeat(5 - starCount);
+      const starColor = starCount <= 3 ? "color: #ff7380;" : "color: var(--gold);";
+
+      return `
+        <tr id="admin-review-row-${escapeHtml(review.id)}">
+          <td><b>${escapeHtml(review.name || "Anonymous")}</b></td>
+          <td>${escapeHtml(review.place || "N/A")}</td>
+          <td>
+            <span style="${starColor} letter-spacing: 2px; font-size: 13px;">${starIcons}</span>
+            <small style="color: #888;"> (${starCount}/5)</small>
+          </td>
+          <td style="max-width: 320px; line-height: 1.5; font-size: 12px; color: #ccc;">
+            “${escapeHtml(review.description || "")}”
+          </td>
+          <td style="text-align: center;">
+            <button class="btn btn-outline btn-sm delete-btn" onclick="deleteReview('${escapeHtml(review.id)}')">
+              Delete
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  } catch (err) {
+    console.error("Failed to fetch admin reviews:", err);
+    tbody.innerHTML = `<tr><td colspan="5" class="empty" style="color: #ff808b;">⚠ Failed to load reviews: ${escapeHtml(err.message || err)}</td></tr>`;
+  }
+}
+
+/**
+ * Deletes a customer review from Supabase reviews table and refreshes the admin table.
+ * @param {string} reviewId - UUID of the review to delete.
+ */
+async function deleteReview(reviewId) {
+  if (!confirm("Are you sure you want to permanently delete this review? This action cannot be undone.")) {
+    return;
+  }
+
+  const sb = typeof getSupabase === "function" ? getSupabase() : null;
+  if (!sb) {
+    alert("Supabase is not configured.");
+    return;
+  }
+
+  try {
+    const { error } = await sb
+      .from("reviews")
+      .delete()
+      .eq("id", reviewId);
+
+    if (error) throw error;
+
+    // Refresh the admin table after successful deletion
+    await renderAdminReviewsTable();
+
+    if (typeof logActivity === "function" && typeof currentUser !== "undefined" && currentUser) {
+      await logActivity(currentUser.id, currentUser.email, "DELETE_REVIEW", { reviewId });
+    }
+  } catch (err) {
+    console.error("Failed to delete review:", err);
+    alert("Failed to delete review: " + (err.message || err));
   }
 }
 
@@ -1466,6 +1625,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const reviewForm = document.getElementById("reviewForm");
   if (reviewForm) {
     reviewForm.addEventListener("submit", handleReviewSubmit);
+  }
+
+  // Attach See More reviews button listener
+  const seeMoreBtn = document.getElementById("seeMoreReviewsBtn");
+  if (seeMoreBtn) {
+    seeMoreBtn.addEventListener("click", loadMoreReviews);
   }
 
   // Auto-close mobile menu when a navigation link is clicked
